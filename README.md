@@ -1,7 +1,7 @@
 
 ---
 
-🌙 Solena — A Minimal GPT-Style Transformer
+# 🌙 Solena — A Minimal GPT-Style Transformer
 
 Solena is a tiny educational GPT-like language model built completely from scratch using PyTorch.
 It trains on plain text, learns next-character prediction, and can generate coherent sequences.
@@ -22,8 +22,8 @@ This project is made to be:
 
 ---
 
-📁 Project Structure
-
+## 📁 Project Structure
+```
 Solena/
 │
 ├── models/
@@ -44,30 +44,30 @@ Solena/
 ├── config.py
 ├── requirements.txt
 └── README.md
-
+```
 
 ---
 
-🚀 Installation
+### 🚀 Installation
 
 Requires Python 3.9+
-
+```
 pip install -r requirements.txt
-
+```
 If you're on WSL:
-
+```
 sudo apt update
 sudo apt install build-essential python3-dev
-
+```
 
 ---
 
-📦 Add Training Data
+### 📦 Add Training Data
 
 Place your text dataset at:
-
+```
 data/raw.txt
-
+```
 You can train on:
 
 Shakespeare
@@ -86,12 +86,12 @@ ANY plain-text file
 
 ---
 
-🧠 Training
+### 🧠 Training
 
 Just run:
-
+```
 python3 train.py
-
+```
 The trainer automatically:
 
 Loads config
@@ -108,24 +108,24 @@ You can run it multiple times — it will continue training seamlessly.
 
 ---
 
-📝 Text Generation
+### 📝 Text Generation
 
 After training:
-
+```
 python3 generate.py
-
+```
 Example:
-
+```
 prompt> hello
 ----
 helolo hera sor thi...
-
+```
 As loss decreases, output quality improves.
 
 
 ---
 
-⚙️ Configuration (config.py)
+### ⚙️ Configuration (config.py)
 
 All model & training parameters live inside config.py, including:
 
@@ -151,8 +151,8 @@ You can modify anything at any time.
 
 ---
 
-🔧 Example Dev Mode Settings
-
+### 🔧 Example Dev Mode Settings
+```
 SEQ_LEN        = 16
 BATCH_SIZE     = 16
 EMBED_DIM      = 32
@@ -161,24 +161,24 @@ N_LAYERS       = 1
 EPOCHS_PER_RUN = 10
 TRAIN_FRACTION = 0.1
 LR             = 3e-4
-
+```
 Perfect for weak hardware or WSL.
 
 
 ---
 
 🧪 Example Output
-
+```
 prompt> To be or not to be
 ----
 To be or not to beren tomas hir...
-
+```
 (Improves significantly over training.)
 
 
 ---
 
-🛣️ Roadmap
+## 🛣️ Roadmap
 
 [ ] Add dropout
 
@@ -198,7 +198,7 @@ To be or not to beren tomas hir...
 
 ---
 
-🤝 Contributing
+###  🤝 Contributing
 
 PRs, issues, and improvements are welcome.
 Solena is intentionally minimal to encourage learning and experimentation.
@@ -206,11 +206,11 @@ Solena is intentionally minimal to encourage learning and experimentation.
 
 ---
 
-⚖️ License
+### ⚖️ License
 
 MIT License
 
 
 ---
 
-🧡 Solena is just the beginning.
+# 🧡 Solena is just the beginning.
