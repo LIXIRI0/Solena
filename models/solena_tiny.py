@@ -61,7 +61,7 @@ class TransformerBlock(nn.Module):
         return x
 
 
-class TinyGPT(nn.Module):
+class SolenaTiny(nn.Module):
     def __init__(self, vocab_size, embed_dim, n_heads, n_layers, seq_len, dropout=0.1):
         super().__init__()
         self.vocab_size = vocab_size

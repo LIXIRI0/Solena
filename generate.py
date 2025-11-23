@@ -2,7 +2,7 @@ import os
 import torch
 import config
 from utils.tokenizer import SimpleCharTokenizer
-from models.tiny_gpt import TinyGPT
+from models.solena_tiny import SolenaTiny
 
 torch.set_num_threads(4)
 
@@ -20,7 +20,7 @@ def load_tokenizer():
     return tokenizer, text
 
 def load_model(tokenizer):
-    model = TinyGPT(
+    model = SolenaTiny(
         vocab_size=tokenizer.vocab_size,
         embed_dim=config.EMBED_DIM,
         n_heads=config.N_HEADS,

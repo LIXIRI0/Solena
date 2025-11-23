@@ -27,7 +27,7 @@ This project is made to be:
 Solena/
 │
 ├── models/
-│   └── tiny_gpt.py
+│   └── solena_tiny.py
 │
 ├── utils/
 │   ├── tokenizer.py
@@ -37,7 +37,7 @@ Solena/
 │   └── raw.txt
 │
 ├── checkpoints/
-│   └── tiny_gpt.pth
+│   └── SolenaTiny.pth
 │
 ├── train.py
 ├── generate.py

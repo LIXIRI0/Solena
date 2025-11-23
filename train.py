@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import config
 from utils.tokenizer import SimpleCharTokenizer
 from utils.dataset import TextDataset
-from models.tiny_gpt import TinyGPT
+from models.solena_tiny import SolenaTiny
 
 torch.set_num_threads(4)
 
@@ -27,7 +27,7 @@ loader = DataLoader(
     persistent_workers=False,
 )
 
-model = TinyGPT(
+model = SolenaTiny(
     vocab_size=tokenizer.vocab_size,
     embed_dim=config.EMBED_DIM,
     n_heads=config.N_HEADS,
