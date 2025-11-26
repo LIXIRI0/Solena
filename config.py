@@ -2,7 +2,7 @@ import torch
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-PROFILE = "cpu_dev"  # "cpu_dev", "cpu_full", "gpu_train"
+PROFILE = "gpu_train"  # "cpu_dev", "cpu_full", "gpu_train"
 
 if PROFILE == "cpu_dev":
     SEQ_LEN = 16
@@ -31,15 +31,15 @@ elif PROFILE == "cpu_full":
     TRAIN_FRACTION = 1.0
 
 elif PROFILE == "gpu_train":
-    SEQ_LEN = 64
+    SEQ_LEN = 128
     BATCH_SIZE = 64
     EMBED_DIM = 128
     N_HEADS = 4
     N_LAYERS = 4
     LR = 3e-4
-
-    EPOCHS_PER_RUN = 5
-    MAX_EPOCHS = 200
+    PIN_MEMORY = True
+    EPOCHS_PER_RUN = 10
+    MAX_EPOCHS = None
     MAX_BATCHES = None
     TRAIN_FRACTION = 1.0
 
@@ -47,7 +47,7 @@ else:
     raise ValueError(f"unknown PROFILE: {PROFILE}")
 
 if DEVICE.startswith("cuda"):
-    NUM_WORKERS = 2
+    NUM_WORKERS = 4
     PIN_MEMORY = True
     USE_AMP = True
 else:
