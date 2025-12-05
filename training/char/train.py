@@ -2,49 +2,49 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-import config
-from utils.tokenizer import SimpleCharTokenizer
-from utils.dataset import TextDataset
-from models.solena_tiny import SolenaTiny
+import config_tiny as config_tiny
+from utils.char.tokenizer import SimpleCharTokenizer
+from utils.char.dataset import TextDataset
+from models.char.solena_tiny import SolenaTiny
 
 torch.set_num_threads(4)
 
-text = open(config.DATA_PATH, "r", encoding="utf-8").read()
+text = open(config_tiny.DATA_PATH, "r", encoding="utf-8").read()
 
-if hasattr(config, "TRAIN_FRACTION"):
-    cut = int(len(text) * config.TRAIN_FRACTION)
+if hasattr(config_tiny, "TRAIN_FRACTION"):
+    cut = int(len(text) * config_tiny.TRAIN_FRACTION)
     text = text[:cut]
 
 tokenizer = SimpleCharTokenizer(text)
-dataset = TextDataset(text, tokenizer, config.SEQ_LEN)
+dataset = TextDataset(text, tokenizer, config_tiny.SEQ_LEN)
 
 loader = DataLoader(
     dataset,
-    batch_size=config.BATCH_SIZE,
+    batch_size=config_tiny.BATCH_SIZE,
     shuffle=True,
-    num_workers=config.NUM_WORKERS,
-    pin_memory=config.PIN_MEMORY,
+    num_workers=config_tiny.NUM_WORKERS,
+    pin_memory=config_tiny.PIN_MEMORY,
     persistent_workers=False,
 )
 
 model = SolenaTiny(
     vocab_size=tokenizer.vocab_size,
-    embed_dim=config.EMBED_DIM,
-    n_heads=config.N_HEADS,
-    n_layers=config.N_LAYERS,
-    seq_len=config.SEQ_LEN,
-).to(config.DEVICE)
+    embed_dim=config_tiny.EMBED_DIM,
+    n_heads=config_tiny.N_HEADS,
+    n_layers=config_tiny.N_LAYERS,
+    seq_len=config_tiny.SEQ_LEN,
+).to(config_tiny.DEVICE)
 
-optim = torch.optim.AdamW(model.parameters(), lr=config.LR)
+optim = torch.optim.AdamW(model.parameters(), lr=config_tiny.LR)
 
-os.makedirs(os.path.dirname(config.CHECKPOINT_PATH), exist_ok=True)
+os.makedirs(os.path.dirname(config_tiny.CHECKPOINT_PATH), exist_ok=True)
 
 start_epoch = 0
 best_loss = float("inf")
 best_epoch = None
 
-if getattr(config, "RESUME", False) and os.path.exists(config.CHECKPOINT_PATH):
-    ckpt = torch.load(config.CHECKPOINT_PATH, map_location=config.DEVICE)
+if getattr(config_tiny, "RESUME", False) and os.path.exists(config_tiny.CHECKPOINT_PATH):
+    ckpt = torch.load(config_tiny.CHECKPOINT_PATH, map_location=config_tiny.DEVICE)
 
     if isinstance(ckpt, dict) and "model" in ckpt:
         model.load_state_dict(ckpt["model"])
@@ -65,17 +65,17 @@ if getattr(config, "RESUME", False) and os.path.exists(config.CHECKPOINT_PATH):
 else:
     print("no checkpoint, starting from scratch")
 
-end_epoch = start_epoch + config.EPOCHS_PER_RUN
-if getattr(config, "MAX_EPOCHS", None) is not None:
-    end_epoch = min(end_epoch, config.MAX_EPOCHS)
+end_epoch = start_epoch + config_tiny.EPOCHS_PER_RUN
+if getattr(config_tiny, "MAX_EPOCHS", None) is not None:
+    end_epoch = min(end_epoch, config_tiny.MAX_EPOCHS)
 
 for epoch in range(start_epoch, end_epoch):
     epoch_loss = 0.0
     batches = 0
 
     for i, (x, y) in enumerate(loader):
-        x = x.to(config.DEVICE)
-        y = y.to(config.DEVICE)
+        x = x.to(config_tiny.DEVICE)
+        y = y.to(config_tiny.DEVICE)
 
         optim.zero_grad()
         logits = model(x)
@@ -89,8 +89,8 @@ for epoch in range(start_epoch, end_epoch):
         epoch_loss += loss.item()
         batches += 1
 
-        if getattr(config, "MAX_BATCHES", None):
-            if i + 1 >= config.MAX_BATCHES:
+        if getattr(config_tiny, "MAX_BATCHES", None):
+            if i + 1 >= config_tiny.MAX_BATCHES:
                 break
 
     if batches == 0:
@@ -113,9 +113,9 @@ for epoch in range(start_epoch, end_epoch):
         "best_epoch": best_epoch,
     }
 
-    if getattr(config, "SAVE_BEST_ONLY", False):
+    if getattr(config_tiny, "SAVE_BEST_ONLY", False):
         if improved:
-            torch.save(save_payload, config.CHECKPOINT_PATH)
+            torch.save(save_payload, config_tiny.CHECKPOINT_PATH)
             print(
                 f"saved BEST checkpoint at epoch {epoch}, "
                 f"best_loss={best_loss:.4f}"
@@ -123,7 +123,7 @@ for epoch in range(start_epoch, end_epoch):
         else:
             print("no improvement, not saving checkpoint this epoch")
     else:
-        torch.save(save_payload, config.CHECKPOINT_PATH)
+        torch.save(save_payload, config_tiny.CHECKPOINT_PATH)
         print(f"saved checkpoint at epoch {epoch}")
 
 if best_epoch is not None and best_loss < float("inf"):

@@ -1,20 +1,20 @@
 import os
 import torch
-import config
-from utils.tokenizer import SimpleCharTokenizer
-from models.solena_tiny import SolenaTiny
+import config_tiny as config_tiny
+from utils.char.tokenizer import SimpleCharTokenizer
+from models.char.solena_tiny import SolenaTiny
 
 torch.set_num_threads(4)
 
-DEVICE = config.DEVICE
-SEQ_LEN = config.SEQ_LEN
-CHECKPOINT_PATH = config.CHECKPOINT_PATH
-DATA_PATH = config.DATA_PATH
+DEVICE = config_tiny.DEVICE
+SEQ_LEN = config_tiny.SEQ_LEN
+CHECKPOINT_PATH = config_tiny.CHECKPOINT_PATH
+DATA_PATH = config_tiny.DATA_PATH
 
 def load_tokenizer():
     text = open(DATA_PATH, "r", encoding="utf-8").read()
-    if hasattr(config, "TRAIN_FRACTION"):
-        cut = int(len(text) * config.TRAIN_FRACTION)
+    if hasattr(config_tiny, "TRAIN_FRACTION"):
+        cut = int(len(text) * config_tiny.TRAIN_FRACTION)
         text = text[:cut]
     tokenizer = SimpleCharTokenizer(text)
     return tokenizer, text
@@ -22,9 +22,9 @@ def load_tokenizer():
 def load_model(tokenizer):
     model = SolenaTiny(
         vocab_size=tokenizer.vocab_size,
-        embed_dim=config.EMBED_DIM,
-        n_heads=config.N_HEADS,
-        n_layers=config.N_LAYERS,
+        embed_dim=config_tiny.EMBED_DIM,
+        n_heads=config_tiny.N_HEADS,
+        n_layers=config_tiny.N_LAYERS,
         seq_len=SEQ_LEN,
     ).to(DEVICE)
 

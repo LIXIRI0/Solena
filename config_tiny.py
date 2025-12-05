@@ -56,6 +56,6 @@ else:
     USE_AMP = False
 
 DATA_PATH = "data/raw.txt"
-CHECKPOINT_PATH = "checkpoints/SolenaTiny.pth"
+CHECKPOINT_PATH = "checkpoints/char/SolenaTiny.pth"
 RESUME = True
 SAVE_BEST_ONLY = True  
