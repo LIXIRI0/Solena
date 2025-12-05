@@ -1,8 +1,9 @@
 import os
+import sys
 import torch
 from torch.utils.data import DataLoader
-
-import config_tiny as config_tiny
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+import config_tiny
 from utils.char.tokenizer import SimpleCharTokenizer
 from utils.char.dataset import TextDataset
 from models.char.solena_tiny import SolenaTiny
