@@ -29,7 +29,7 @@ class MultiHeadSelfAttention(nn.Module):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         att = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
-        mask = self.causal_mask[:, :, :T, :T]
+        mask = self.causal_mask[:, :, :T, :T] # type: ignore
         att = att.masked_fill(mask == 0, float("-inf"))
 
         att = F.softmax(att, dim=-1)

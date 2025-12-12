@@ -17,7 +17,7 @@ def load_tokenizer():
         cut = int(len(text) * config_tiny.TRAIN_FRACTION)
         text = text[:cut]
     tokenizer = SimpleCharTokenizer(text)
-    return tokenizer, text
+    return tokenizer
 
 def load_model(tokenizer):
     model = SolenaTiny(
@@ -32,79 +32,77 @@ def load_model(tokenizer):
         raise FileNotFoundError(f"no checkpoint at {CHECKPOINT_PATH}")
 
     ckpt = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
-
-    if isinstance(ckpt, dict) and "model" in ckpt:
-        state_dict = ckpt["model"]
-    else:
-        state_dict = ckpt
-
-    # optional sanity check
-    emb_key = "token_emb.weight"
-    if emb_key in state_dict:
-        ckpt_vocab = state_dict[emb_key].shape[0]
-        if ckpt_vocab != tokenizer.vocab_size:
-            raise RuntimeError(
-                f"vocab size mismatch: checkpoint={ckpt_vocab}, tokenizer={tokenizer.vocab_size}. "
-                "make sure TRAIN_FRACTION and data are the same as during training."
-            )
+    state_dict = ckpt["model"] if isinstance(ckpt, dict) else ckpt
 
     model.load_state_dict(state_dict)
     model.eval()
     return model
 
-def sample(model, tokenizer, prompt, max_new_tokens=200, temperature=1.0, top_k=None):
+def sample(model, tokenizer, prompt):
     encoded = tokenizer.encode(prompt)
-    if len(encoded) == 0:
-        encoded = [0]
     tokens = torch.tensor([encoded], dtype=torch.long, device=DEVICE)
 
     with torch.no_grad():
-        for _ in range(max_new_tokens):
+        for _ in range(config_tiny.GEN_MAX_NEW_TOKENS):
             if tokens.size(1) > SEQ_LEN:
                 tokens = tokens[:, -SEQ_LEN:]
 
             logits = model(tokens)
-            logits = logits[:, -1, :] / max(temperature, 1e-6)
+            logits = logits[:, -1, :] / max(config_tiny.GEN_TEMPERATURE, 1e-6)
 
-            if top_k is not None:
-                v, _ = torch.topk(logits, top_k)
+            if config_tiny.GEN_TOP_K is not None:
+                v, _ = torch.topk(logits, config_tiny.GEN_TOP_K)
                 thresh = v[:, -1].unsqueeze(-1)
-                logits = torch.where(
-                    logits < thresh,
-                    torch.full_like(logits, -1e10),
-                    logits,
-                )
+                logits = torch.where(logits < thresh, torch.full_like(logits, -1e10), logits)
+                
+            if getattr(config_tiny, "GEN_TOP_P", None) is not None:
+                sorted_logits, sorted_idx = torch.sort(logits, descending=True, dim=-1)
+                sorted_probs = torch.softmax(sorted_logits, dim=-1)
+                cum = torch.cumsum(sorted_probs, dim=-1)
+                keep = cum <= config_tiny.GEN_TOP_P
+                keep[..., 0] = True
+                masked_sorted = torch.where(keep, sorted_logits, torch.full_like(sorted_logits, -1e10))
+                inv = torch.empty_like(sorted_idx)
+                inv.scatter_(1, sorted_idx, torch.arange(sorted_idx.size(1), device=sorted_idx.device).unsqueeze(0).expand_as(sorted_idx))
+                logits = torch.gather(masked_sorted, 1, inv)
 
             probs = torch.softmax(logits, dim=-1)
-            next_id = torch.multinomial(probs, num_samples=1)
+            next_id = torch.multinomial(probs, 1)
             tokens = torch.cat([tokens, next_id], dim=1)
 
-    ids = tokens[0].tolist()
-    return tokenizer.decode(ids)
+            text = tokenizer.decode(tokens[0].tolist())
+            if "\nUser:" in text[len(prompt):]:
+                break
+
+    return tokenizer.decode(tokens[0].tolist())
+
+def extract_assistant(text):
+    idx = text.find("Assistant:")
+    if idx == -1:
+        return text.strip()
+    out = text[idx + len("Assistant:"):]
+    cut = out.find("\nUser:")
+    if cut != -1:
+        out = out[:cut]
+    return out.strip()
 
 def main():
-    tokenizer, _ = load_tokenizer()
+    tokenizer = load_tokenizer()
     model = load_model(tokenizer)
 
     while True:
         try:
-            prompt = input("prompt> ")
+            user = input("prompt> ").strip()
         except EOFError:
             break
 
-        if not prompt.strip():
+        if not user:
             continue
 
-        out = sample(
-            model,
-            tokenizer,
-            prompt,
-            max_new_tokens=200,
-            temperature=0.9,
-            top_k=20,
-        )
+        prompt = f"User: {user}\nAssistant:"
+        out = sample(model, tokenizer, prompt)
         print("----")
-        print(out)
+        print(extract_assistant(out))
         print("----")
 
 if __name__ == "__main__":

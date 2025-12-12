@@ -5,6 +5,11 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 PROFILE = "cpu_dev"  # "cpu_dev", "cpu_full", "gpu_train"
 
+GEN_MAX_NEW_TOKENS = 200
+GEN_TEMPERATURE = 0.9
+GEN_TOP_K = 20
+GEN_TOP_P = 0.9
+
 if PROFILE == "cpu_dev":
     SEQ_LEN = 16
     BATCH_SIZE = 16
@@ -17,6 +22,7 @@ if PROFILE == "cpu_dev":
     MAX_EPOCHS = None
     MAX_BATCHES = 10
     TRAIN_FRACTION = 1
+    VAL_BATCHES= 0
 
 elif PROFILE == "cpu_full":
     SEQ_LEN = 32
@@ -30,6 +36,7 @@ elif PROFILE == "cpu_full":
     MAX_EPOCHS = None
     MAX_BATCHES = None
     TRAIN_FRACTION = 1.0
+    VAL_BATCHES= 20
 
 elif PROFILE == "gpu_train":
     SEQ_LEN = 128
@@ -43,7 +50,7 @@ elif PROFILE == "gpu_train":
     MAX_EPOCHS = None
     MAX_BATCHES = None
     TRAIN_FRACTION = 1.0
-
+    VAL_BATCHES= 50
 else:
     raise ValueError(f"unknown PROFILE: {PROFILE}")
 
@@ -60,5 +67,6 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_PATH = os.path.join(ROOT_DIR, "data", "char", "raw.txt")
 CHECKPOINT_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "SolenaTiny.pth")
+VAL_PATH = os.path.join(ROOT_DIR, "data", "char", "val.txt")
 RESUME = True
 SAVE_BEST_ONLY = True

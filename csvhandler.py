@@ -1,8 +1,8 @@
 import csv
 import re
 
-INPUT_CSV = "train.csv"
-OUTPUT_TXT = "data/char/raw.txt"
+INPUT_CSV = "validation.csv"
+OUTPUT_TXT = "data/char/val.txt"
 
 _ws = re.compile(r"\s+")
 _apostrophe_spaces = re.compile(r"\s*'\s*")
