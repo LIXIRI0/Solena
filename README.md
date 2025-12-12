@@ -180,19 +180,19 @@ To be or not to beren tomas hir...
 
 ## 🛣️ Roadmap
 
-[ ] Add dropout
+[✅] Add dropout
 
 [ ] Add learned/rope positional encodings
 
-[ ] Add attention mask
+[✅] Add attention mask
 
-[ ] Add perplexity evaluation
+[✅] Add perplexity evaluation
 
-[ ] Add sampling options (top-k, nucleus, temp)
+[✅] Add sampling options (top-k, nucleus, temp)
 
 [ ] Add web UI for inference
 
-[ ] Multi-GPU support for cloud GPUs (A10G / T4)
+[✅] Multi-GPU support for cloud GPUs (A10G / T4)
 
 
 
