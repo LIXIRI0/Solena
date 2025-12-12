@@ -1,8 +1,9 @@
+import os
 import torch
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-PROFILE = "gpu_train"  # "cpu_dev", "cpu_full", "gpu_train"
+PROFILE = "cpu_dev"  # "cpu_dev", "cpu_full", "gpu_train"
 
 if PROFILE == "cpu_dev":
     SEQ_LEN = 16
@@ -15,7 +16,7 @@ if PROFILE == "cpu_dev":
     EPOCHS_PER_RUN = 50
     MAX_EPOCHS = None
     MAX_BATCHES = 10
-    TRAIN_FRACTION = 0.1
+    TRAIN_FRACTION = 1
 
 elif PROFILE == "cpu_full":
     SEQ_LEN = 32
@@ -55,7 +56,9 @@ else:
     PIN_MEMORY = False
     USE_AMP = False
 
-DATA_PATH = "data/raw.txt"
-CHECKPOINT_PATH = "checkpoints/char/SolenaTiny.pth"
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DATA_PATH = os.path.join(ROOT_DIR, "data", "char", "raw.txt")
+CHECKPOINT_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "SolenaTiny.pth")
 RESUME = True
-SAVE_BEST_ONLY = True  
+SAVE_BEST_ONLY = True
