@@ -54,9 +54,8 @@ model = SolenaTiny(
 
 optim = torch.optim.AdamW(model.parameters(), lr=config_tiny.LR)
 
-use_amp = bool(getattr(config_tiny, "USE_AMP", False)) and str(config_tiny.DEVICE).startswith("cuda")
+use_amp = bool(getattr(config_tiny, "USE_AMP", False)) and str(config_tiny.DEVICE).startswith("cuda") and torch.cuda.is_available()
 scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
-autocast_ctx = torch.cuda.amp.autocast if str(config_tiny.DEVICE).startswith("cuda") else torch.cpu.amp.autocast
 
 os.makedirs(os.path.dirname(config_tiny.CHECKPOINT_PATH), exist_ok=True)
 
@@ -100,7 +99,14 @@ for epoch in range(start_epoch, end_epoch):
 
         optim.zero_grad(set_to_none=True)
 
-        with autocast_ctx(enabled=use_amp):
+        if use_amp:
+            with torch.cuda.amp.autocast():
+                logits = model(x)
+                loss = torch.nn.functional.cross_entropy(
+                    logits.view(-1, tokenizer.vocab_size),
+                    y.view(-1),
+                )
+        else:
             logits = model(x)
             loss = torch.nn.functional.cross_entropy(
                 logits.view(-1, tokenizer.vocab_size),
@@ -140,8 +146,14 @@ for epoch in range(start_epoch, end_epoch):
             for _, (x, y) in enumerate(val_loader):
                 x = x.to(config_tiny.DEVICE)
                 y = y.to(config_tiny.DEVICE)
-
-                with autocast_ctx(enabled=use_amp):
+                if use_amp:
+                    with torch.cuda.amp.autocast():
+                        logits = model(x)
+                        loss = torch.nn.functional.cross_entropy(
+                            logits.view(-1, tokenizer.vocab_size),
+                            y.view(-1),
+                        )
+                else:
                     logits = model(x)
                     loss = torch.nn.functional.cross_entropy(
                         logits.view(-1, tokenizer.vocab_size),
@@ -156,7 +168,7 @@ for epoch in range(start_epoch, end_epoch):
 
         if val_batches > 0:
             avg_val_loss = val_loss / val_batches
-            val_ppl = torch.exp(torch.tensor(avg_val_loss)).item()
+            val_ppl = float(torch.exp(torch.tensor(avg_val_loss)))
             print(f"val_loss {avg_val_loss:.4f} | val_ppl {val_ppl:.2f}")
 
     model.train()
