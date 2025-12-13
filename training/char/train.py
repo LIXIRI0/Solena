@@ -54,6 +54,10 @@ model = SolenaTiny(
 
 optim = torch.optim.AdamW(model.parameters(), lr=config_tiny.LR)
 
+use_amp = bool(getattr(config_tiny, "USE_AMP", False)) and str(config_tiny.DEVICE).startswith("cuda")
+scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+autocast_ctx = torch.cuda.amp.autocast if str(config_tiny.DEVICE).startswith("cuda") else torch.cpu.amp.autocast
+
 os.makedirs(os.path.dirname(config_tiny.CHECKPOINT_PATH), exist_ok=True)
 
 start_epoch = 0
@@ -94,14 +98,22 @@ for epoch in range(start_epoch, end_epoch):
         x = x.to(config_tiny.DEVICE)
         y = y.to(config_tiny.DEVICE)
 
-        optim.zero_grad()
-        logits = model(x)
-        loss = torch.nn.functional.cross_entropy(
-            logits.view(-1, tokenizer.vocab_size),
-            y.view(-1),
-        )
-        loss.backward()
-        optim.step()
+        optim.zero_grad(set_to_none=True)
+
+        with autocast_ctx(enabled=use_amp):
+            logits = model(x)
+            loss = torch.nn.functional.cross_entropy(
+                logits.view(-1, tokenizer.vocab_size),
+                y.view(-1),
+            )
+
+        if use_amp:
+            scaler.scale(loss).backward()
+            scaler.step(optim)
+            scaler.update()
+        else:
+            loss.backward()
+            optim.step()
 
         epoch_loss += loss.item()
         batches += 1
@@ -129,11 +141,12 @@ for epoch in range(start_epoch, end_epoch):
                 x = x.to(config_tiny.DEVICE)
                 y = y.to(config_tiny.DEVICE)
 
-                logits = model(x)
-                loss = torch.nn.functional.cross_entropy(
-                    logits.view(-1, tokenizer.vocab_size),
-                    y.view(-1),
-                )
+                with autocast_ctx(enabled=use_amp):
+                    logits = model(x)
+                    loss = torch.nn.functional.cross_entropy(
+                        logits.view(-1, tokenizer.vocab_size),
+                        y.view(-1),
+                    )
 
                 val_loss += loss.item()
                 val_batches += 1
