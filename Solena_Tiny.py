@@ -35,6 +35,14 @@ def load_model(tokenizer):
 
     ckpt = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
     state_dict = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
+    emb_key = "token_emb.weight"
+    if emb_key in state_dict:
+        ckpt_vocab = state_dict[emb_key].shape[0]
+        if ckpt_vocab != tokenizer.vocab_size:
+            raise RuntimeError(
+                f"vocab mismatch: checkpoint={ckpt_vocab} tokenizer={tokenizer.vocab_size}. "
+                f"delete {config_tiny.TOKENIZER_PATH} + retrain, or keep tokenizer/checkpoint paired."
+            )
     model.load_state_dict(state_dict)
     model.eval()
     return model
@@ -72,20 +80,27 @@ def sample(model, tokenizer, prompt):
             tokens = torch.cat([tokens, next_id], dim=1)
 
             text = tokenizer.decode(tokens[0].tolist())
-            if "\nUser:" in text[len(prompt):]:
-                break
+
+            start = len(prompt)
+            if start < len(text):
+                tail = text[start:]
+                if ("\nUser:" in tail) or ("\nAssistant:" in tail):
+                    break
 
     return tokenizer.decode(tokens[0].tolist())
 
-def extract_assistant(text):
-    idx = text.find("Assistant:")
-    if idx == -1:
+def extract_assistant(text: str):
+    last = text.rfind("Assistant:")
+    if last == -1:
         return text.strip()
-    out = text[idx + len("Assistant:"):]
-    cut = out.find("\nUser:")
-    if cut != -1:
-        out = out[:cut]
-    return out.strip()
+    out = text[last + len("Assistant:"):]
+    cut_user = out.find("\nUser:")
+    if cut_user != -1:
+        out = out[:cut_user]
+    cut_ass = out.find("\nAssistant:")
+    if cut_ass != -1:
+        out = out[:cut_ass]
+    return out.strip(" \n\t")
 
 def main():
     tokenizer = load_tokenizer()
