@@ -23,42 +23,12 @@ class SimpleCharTokenizer:
                 self.id_to_token[idx] = ch
                 idx += 1
 
-        self.pad_id = self.vocab["<pad>"]
-        self.bos_id = self.vocab["<bos>"]
-        self.eos_id = self.vocab["<eos>"]
-        self.unk_id = self.vocab["<unk>"]
+        self.pad_id = self.vocab.get("<pad>", 0)
+        self.bos_id = self.vocab.get("<bos>", 1)
+        self.eos_id = self.vocab.get("<eos>", 2)
+        self.unk_id = self.vocab.get("<unk>", 3)
 
         self.vocab_size = len(self.vocab)
-
-    @classmethod
-    def from_dict(cls, d):
-        obj = cls("", add_special_tokens=False)
-        obj.special_tokens = list(d["special_tokens"])
-        obj.vocab = {k: int(v) for k, v in d["vocab"].items()}
-        obj.id_to_token = {int(k): v for k, v in d["id_to_token"].items()}
-        obj.pad_id = obj.vocab["<pad>"]
-        obj.bos_id = obj.vocab["<bos>"]
-        obj.eos_id = obj.vocab["<eos>"]
-        obj.unk_id = obj.vocab["<unk>"]
-        obj.vocab_size = len(obj.vocab)
-        return obj
-
-    def to_dict(self):
-        return {
-            "special_tokens": self.special_tokens,
-            "vocab": self.vocab,
-            "id_to_token": {str(k): v for k, v in self.id_to_token.items()},
-        }
-
-    def save(self, path):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, ensure_ascii=False)
-
-    @classmethod
-    def load(cls, path):
-        with open(path, "r", encoding="utf-8") as f:
-            d = json.load(f)
-        return cls.from_dict(d)
 
     def encode(self, text, add_bos=False, add_eos=False):
         tokens = []
@@ -78,3 +48,36 @@ class SimpleCharTokenizer:
                 continue
             out.append(tok)
         return "".join(out)
+
+    def to_dict(self):
+        return {
+            "vocab": self.vocab,
+            "special_tokens": self.special_tokens,
+            "pad_id": self.pad_id,
+            "bos_id": self.bos_id,
+            "eos_id": self.eos_id,
+            "unk_id": self.unk_id,
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        obj = cls.__new__(cls)
+        obj.vocab = {k: int(v) for k, v in d["vocab"].items()}
+        obj.id_to_token = {int(v): k for k, v in obj.vocab.items()}
+        obj.special_tokens = list(d.get("special_tokens", []))
+        obj.pad_id = int(d.get("pad_id", obj.vocab.get("<pad>", 0)))
+        obj.bos_id = int(d.get("bos_id", obj.vocab.get("<bos>", 1)))
+        obj.eos_id = int(d.get("eos_id", obj.vocab.get("<eos>", 2)))
+        obj.unk_id = int(d.get("unk_id", obj.vocab.get("<unk>", 3)))
+        obj.vocab_size = len(obj.vocab)
+        return obj
+
+    def save(self, path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False)
+
+    @classmethod
+    def load(cls, path):
+        with open(path, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return cls.from_dict(d)
