@@ -9,6 +9,7 @@ GEN_MAX_NEW_TOKENS = 200
 GEN_TEMPERATURE = 0.9
 GEN_TOP_K = 20
 GEN_TOP_P = 0.9
+DROPOUT = 0.1
 
 if PROFILE == "cpu_dev":
     SEQ_LEN = 16
@@ -68,5 +69,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(ROOT_DIR, "data", "char", "raw.txt")
 CHECKPOINT_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "SolenaTiny.pth")
 VAL_PATH = os.path.join(ROOT_DIR, "data", "char", "val.txt")
+TOKENIZER_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "tokenizer.json")
+
 RESUME = True
 SAVE_BEST_ONLY = True

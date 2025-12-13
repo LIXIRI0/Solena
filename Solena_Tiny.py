@@ -12,12 +12,13 @@ CHECKPOINT_PATH = config_tiny.CHECKPOINT_PATH
 DATA_PATH = config_tiny.DATA_PATH
 
 def load_tokenizer():
+    if hasattr(config_tiny, "TOKENIZER_PATH") and os.path.exists(config_tiny.TOKENIZER_PATH):
+        return SimpleCharTokenizer.load(config_tiny.TOKENIZER_PATH)
     text = open(DATA_PATH, "r", encoding="utf-8").read()
     if hasattr(config_tiny, "TRAIN_FRACTION"):
         cut = int(len(text) * config_tiny.TRAIN_FRACTION)
         text = text[:cut]
-    tokenizer = SimpleCharTokenizer(text)
-    return tokenizer
+    return SimpleCharTokenizer(text)
 
 def load_model(tokenizer):
     model = SolenaTiny(
@@ -26,14 +27,14 @@ def load_model(tokenizer):
         n_heads=config_tiny.N_HEADS,
         n_layers=config_tiny.N_LAYERS,
         seq_len=SEQ_LEN,
+        dropout=config_tiny.DROPOUT,
     ).to(DEVICE)
 
     if not os.path.exists(CHECKPOINT_PATH):
         raise FileNotFoundError(f"no checkpoint at {CHECKPOINT_PATH}")
 
     ckpt = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
-    state_dict = ckpt["model"] if isinstance(ckpt, dict) else ckpt
-
+    state_dict = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
     model.load_state_dict(state_dict)
     model.eval()
     return model

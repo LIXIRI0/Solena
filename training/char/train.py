@@ -2,8 +2,8 @@ import os
 import sys
 import torch
 from torch.utils.data import DataLoader
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from config_tiny import *
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 import config_tiny
 from utils.char.tokenizer import SimpleCharTokenizer
 from utils.char.dataset import TextDataset
@@ -14,12 +14,14 @@ torch.set_num_threads(4)
 text = open(config_tiny.DATA_PATH, "r", encoding="utf-8").read()
 val_text = open(config_tiny.VAL_PATH, "r", encoding="utf-8").read()
 
-
 if hasattr(config_tiny, "TRAIN_FRACTION"):
     cut = int(len(text) * config_tiny.TRAIN_FRACTION)
     text = text[:cut]
 
 tokenizer = SimpleCharTokenizer(text)
+os.makedirs(os.path.dirname(config_tiny.TOKENIZER_PATH), exist_ok=True)
+tokenizer.save(config_tiny.TOKENIZER_PATH)
+
 dataset = TextDataset(text, tokenizer, config_tiny.SEQ_LEN)
 val_dataset = TextDataset(val_text, tokenizer, config_tiny.SEQ_LEN)
 
@@ -47,6 +49,7 @@ model = SolenaTiny(
     n_heads=config_tiny.N_HEADS,
     n_layers=config_tiny.N_LAYERS,
     seq_len=config_tiny.SEQ_LEN,
+    dropout=config_tiny.DROPOUT,
 ).to(config_tiny.DEVICE)
 
 optim = torch.optim.AdamW(model.parameters(), lr=config_tiny.LR)
@@ -103,9 +106,8 @@ for epoch in range(start_epoch, end_epoch):
         epoch_loss += loss.item()
         batches += 1
 
-        if getattr(config_tiny, "MAX_BATCHES", None):
-            if i + 1 >= config_tiny.MAX_BATCHES: # type: ignore
-                break
+        if config_tiny.MAX_BATCHES is not None and (i + 1) >= config_tiny.MAX_BATCHES:
+            break
 
     if batches == 0:
         print(f"epoch {epoch}: no batches, skipping")
@@ -114,44 +116,43 @@ for epoch in range(start_epoch, end_epoch):
     avg_loss = epoch_loss / batches
     print(f"epoch {epoch} avg_loss {avg_loss:.4f}")
 
-model.eval()
-avg_val_loss = None
-val_ppl = None
+    model.eval()
+    avg_val_loss = None
+    val_ppl = None
 
-if getattr(config_tiny, "VAL_BATCHES", None) != 0:
-    val_loss = 0.0
-    val_batches = 0
+    if getattr(config_tiny, "VAL_BATCHES", None) != 0:
+        val_loss = 0.0
+        val_batches = 0
 
-    with torch.no_grad():
-        for i, (x, y) in enumerate(val_loader):
-            x = x.to(config_tiny.DEVICE)
-            y = y.to(config_tiny.DEVICE)
+        with torch.no_grad():
+            for _, (x, y) in enumerate(val_loader):
+                x = x.to(config_tiny.DEVICE)
+                y = y.to(config_tiny.DEVICE)
 
-            logits = model(x)
-            loss = torch.nn.functional.cross_entropy(
-                logits.view(-1, tokenizer.vocab_size),
-                y.view(-1),
-            )
+                logits = model(x)
+                loss = torch.nn.functional.cross_entropy(
+                    logits.view(-1, tokenizer.vocab_size),
+                    y.view(-1),
+                )
 
-            val_loss += loss.item()
-            val_batches += 1
+                val_loss += loss.item()
+                val_batches += 1
 
-            if config_tiny.VAL_BATCHES is not None:
-                if val_batches >= config_tiny.VAL_BATCHES:
+                if config_tiny.VAL_BATCHES is not None and val_batches >= config_tiny.VAL_BATCHES:
                     break
 
-    if val_batches > 0:
-        avg_val_loss = val_loss / val_batches
-        val_ppl = torch.exp(torch.tensor(avg_val_loss)).item()
-        print(f"val_loss {avg_val_loss:.4f} | val_ppl {val_ppl:.2f}")
+        if val_batches > 0:
+            avg_val_loss = val_loss / val_batches
+            val_ppl = torch.exp(torch.tensor(avg_val_loss)).item()
+            print(f"val_loss {avg_val_loss:.4f} | val_ppl {val_ppl:.2f}")
 
-model.train()
+    model.train()
 
-metric = avg_val_loss if avg_val_loss is not None else avg_loss
-improved = metric < best_loss
-if improved:
-    best_loss = metric
-    best_epoch = epoch
+    metric = avg_val_loss if avg_val_loss is not None else avg_loss
+    improved = metric < best_loss
+    if improved:
+        best_loss = metric
+        best_epoch = epoch
 
     save_payload = {
         "model": model.state_dict(),
@@ -164,7 +165,6 @@ if improved:
     if getattr(config_tiny, "SAVE_BEST_ONLY", False):
         if improved:
             torch.save(save_payload, config_tiny.CHECKPOINT_PATH)
-
             if avg_val_loss is not None:
                 print(
                     f"epoch {epoch} "

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, embed_dim, n_heads, seq_len, dropout=0.1):
+    def __init__(self, embed_dim, n_heads, seq_len, dropout):
         super().__init__()
         assert embed_dim % n_heads == 0
 
@@ -15,7 +15,8 @@ class MultiHeadSelfAttention(nn.Module):
 
         self.qkv = nn.Linear(embed_dim, 3 * embed_dim)
         self.out_proj = nn.Linear(embed_dim, embed_dim)
-        self.dropout = nn.Dropout(dropout)
+        self.attn_dropout = nn.Dropout(dropout)
+        self.resid_dropout = nn.Dropout(dropout)
 
         mask = torch.tril(torch.ones(seq_len, seq_len))
         self.register_buffer("causal_mask", mask.view(1, 1, seq_len, seq_len))
@@ -29,15 +30,16 @@ class MultiHeadSelfAttention(nn.Module):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         att = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
-        mask = self.causal_mask[:, :, :T, :T] # type: ignore
+        mask = self.causal_mask[:, :, :T, :T]  # type: ignore
         att = att.masked_fill(mask == 0, float("-inf"))
 
         att = F.softmax(att, dim=-1)
-        att = self.dropout(att)
+        att = self.attn_dropout(att)
 
         out = att @ v
         out = out.transpose(1, 2).contiguous().view(B, T, C)
         out = self.out_proj(out)
+        out = self.resid_dropout(out)
         return out
 
 
@@ -70,6 +72,7 @@ class SolenaTiny(nn.Module):
 
         self.token_emb = nn.Embedding(vocab_size, embed_dim)
         self.pos_emb = nn.Embedding(seq_len, embed_dim)
+        self.emb_dropout = nn.Dropout(dropout)
 
         self.blocks = nn.ModuleList(
             [TransformerBlock(embed_dim, n_heads, seq_len, dropout) for _ in range(n_layers)]
@@ -84,6 +87,7 @@ class SolenaTiny(nn.Module):
 
         pos = torch.arange(0, T, device=device).unsqueeze(0)
         x = self.token_emb(idx) + self.pos_emb(pos)
+        x = self.emb_dropout(x)
 
         for block in self.blocks:
             x = block(x)
