@@ -84,7 +84,7 @@ def sample(model, tokenizer, prompt):
             start = len(prompt)
             if start < len(text):
                 tail = text[start:]
-                if ("\nUser:" in tail) or ("\nAssistant:" in tail):
+                if "\nUser:" in tail:
                     break
 
     return tokenizer.decode(tokens[0].tolist())
