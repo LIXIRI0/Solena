@@ -47,6 +47,7 @@ elif PROFILE == "gpu_train":
     MAX_BATCHES = None
     TRAIN_FRACTION = 1.0
     VAL_BATCHES= 50
+    GRAD_ACCUM_STEPS= 4
 else:
     raise ValueError(f"unknown PROFILE: {PROFILE}")
 
