@@ -18,9 +18,6 @@ class MultiHeadSelfAttention(nn.Module):
         self.attn_dropout = nn.Dropout(dropout)
         self.resid_dropout = nn.Dropout(dropout)
 
-        mask = torch.tril(torch.ones(seq_len, seq_len))
-        self.register_buffer("causal_mask", mask.view(1, 1, seq_len, seq_len))
-
     def forward(self, x):
         B, T, C = x.shape
 
@@ -29,14 +26,15 @@ class MultiHeadSelfAttention(nn.Module):
         qkv = qkv.permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
 
-        att = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
-        mask = self.causal_mask[:, :, :T, :T]  # type: ignore
-        att = att.masked_fill(mask == 0, float("-inf"))
+        out = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=None,
+            dropout_p=self.attn_dropout.p if self.training else 0.0,
+            is_causal=True,
+        )
 
-        att = F.softmax(att, dim=-1)
-        att = self.attn_dropout(att)
-
-        out = att @ v
         out = out.transpose(1, 2).contiguous().view(B, T, C)
         out = self.out_proj(out)
         out = self.resid_dropout(out)
