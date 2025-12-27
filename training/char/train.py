@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -10,6 +11,13 @@ from utils.char.dataset import TextDataset
 from models.char.solena_tiny import SolenaTiny
 
 torch.set_num_threads(4)
+
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+    try:
+        torch.set_float32_matmul_precision("high")
+    except Exception:
+        pass
 
 text = open(config_tiny.DATA_PATH, "r", encoding="utf-8").read()
 val_text = open(config_tiny.VAL_PATH, "r", encoding="utf-8").read()
@@ -54,8 +62,25 @@ model = SolenaTiny(
 
 optim = torch.optim.AdamW(model.parameters(), lr=config_tiny.LR)
 
-use_amp = bool(getattr(config_tiny, "USE_AMP", False)) and str(config_tiny.DEVICE).startswith("cuda") and torch.cuda.is_available()
+use_amp = (
+    bool(getattr(config_tiny, "USE_AMP", False))
+    and str(config_tiny.DEVICE).startswith("cuda")
+    and torch.cuda.is_available()
+)
+
+amp_dtype = torch.float16
+if use_amp and torch.cuda.is_available():
+    try:
+        if torch.cuda.is_bf16_supported():
+            amp_dtype = torch.bfloat16
+    except Exception:
+        amp_dtype = torch.float16
+
 scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+
+grad_accum = int(getattr(config_tiny, "GRAD_ACCUM_STEPS", 1))
+if grad_accum < 1:
+    grad_accum = 1
 
 os.makedirs(os.path.dirname(config_tiny.CHECKPOINT_PATH), exist_ok=True)
 
@@ -65,7 +90,6 @@ best_epoch = None
 
 if getattr(config_tiny, "RESUME", False) and os.path.exists(config_tiny.CHECKPOINT_PATH):
     ckpt = torch.load(config_tiny.CHECKPOINT_PATH, map_location=config_tiny.DEVICE)
-
     if isinstance(ckpt, dict) and "model" in ckpt:
         model.load_state_dict(ckpt["model"])
         optim.load_state_dict(ckpt["optim"])
@@ -73,10 +97,7 @@ if getattr(config_tiny, "RESUME", False) and os.path.exists(config_tiny.CHECKPOI
         best_loss = ckpt.get("best_loss", float("inf"))
         best_epoch = ckpt.get("best_epoch", None)
         if best_epoch is not None:
-            print(
-                f"resumed from epoch {start_epoch}, "
-                f"best_loss={best_loss:.4f} (epoch {best_epoch})"
-            )
+            print(f"resumed from epoch {start_epoch}, best_loss={best_loss:.4f} (epoch {best_epoch})")
         else:
             print(f"resumed from epoch {start_epoch}, best_loss={best_loss:.4f}")
     else:
@@ -90,42 +111,58 @@ if getattr(config_tiny, "MAX_EPOCHS", None) is not None:
     end_epoch = min(end_epoch, config_tiny.MAX_EPOCHS)
 
 for epoch in range(start_epoch, end_epoch):
+    model.train()
     epoch_loss = 0.0
     batches = 0
 
-    for i, (x, y) in enumerate(loader):
-        x = x.to(config_tiny.DEVICE)
-        y = y.to(config_tiny.DEVICE)
+    optim.zero_grad(set_to_none=True)
 
-        optim.zero_grad(set_to_none=True)
+    for i, (x, y) in enumerate(loader):
+        x = x.to(config_tiny.DEVICE, non_blocking=True)
+        y = y.to(config_tiny.DEVICE, non_blocking=True)
 
         if use_amp:
-            with torch.cuda.amp.autocast():
+            with torch.cuda.amp.autocast(dtype=amp_dtype):
                 logits = model(x)
-                loss = torch.nn.functional.cross_entropy(
+                loss = F.cross_entropy(
                     logits.view(-1, tokenizer.vocab_size),
                     y.view(-1),
                 )
+                loss = loss / grad_accum
         else:
             logits = model(x)
-            loss = torch.nn.functional.cross_entropy(
+            loss = F.cross_entropy(
                 logits.view(-1, tokenizer.vocab_size),
                 y.view(-1),
             )
+            loss = loss / grad_accum
 
         if use_amp:
             scaler.scale(loss).backward()
-            scaler.step(optim)
-            scaler.update()
         else:
             loss.backward()
-            optim.step()
 
-        epoch_loss += loss.item()
+        if (i + 1) % grad_accum == 0:
+            if use_amp:
+                scaler.step(optim)
+                scaler.update()
+            else:
+                optim.step()
+            optim.zero_grad(set_to_none=True)
+
+        epoch_loss += loss.item() * grad_accum
         batches += 1
 
         if config_tiny.MAX_BATCHES is not None and (i + 1) >= config_tiny.MAX_BATCHES:
             break
+
+    if batches > 0 and (batches % grad_accum) != 0:
+        if use_amp:
+            scaler.step(optim)
+            scaler.update()
+        else:
+            optim.step()
+        optim.zero_grad(set_to_none=True)
 
     if batches == 0:
         print(f"epoch {epoch}: no batches, skipping")
@@ -141,21 +178,21 @@ for epoch in range(start_epoch, end_epoch):
     if getattr(config_tiny, "VAL_BATCHES", None) != 0:
         val_loss = 0.0
         val_batches = 0
-
         with torch.no_grad():
             for _, (x, y) in enumerate(val_loader):
-                x = x.to(config_tiny.DEVICE)
-                y = y.to(config_tiny.DEVICE)
+                x = x.to(config_tiny.DEVICE, non_blocking=True)
+                y = y.to(config_tiny.DEVICE, non_blocking=True)
+
                 if use_amp:
-                    with torch.cuda.amp.autocast():
+                    with torch.cuda.amp.autocast(dtype=amp_dtype):
                         logits = model(x)
-                        loss = torch.nn.functional.cross_entropy(
+                        loss = F.cross_entropy(
                             logits.view(-1, tokenizer.vocab_size),
                             y.view(-1),
                         )
                 else:
                     logits = model(x)
-                    loss = torch.nn.functional.cross_entropy(
+                    loss = F.cross_entropy(
                         logits.view(-1, tokenizer.vocab_size),
                         y.view(-1),
                     )
@@ -191,19 +228,9 @@ for epoch in range(start_epoch, end_epoch):
         if improved:
             torch.save(save_payload, config_tiny.CHECKPOINT_PATH)
             if avg_val_loss is not None:
-                print(
-                    f"epoch {epoch} "
-                    f"train_loss {avg_loss:.4f} "
-                    f"val_loss {avg_val_loss:.4f} "
-                    f"ppl {val_ppl:.2f} "
-                    f"— new best, saved checkpoint"
-                )
+                print(f"epoch {epoch} train_loss {avg_loss:.4f} val_loss {avg_val_loss:.4f} ppl {val_ppl:.2f} — new best, saved checkpoint")
             else:
-                print(
-                    f"epoch {epoch} "
-                    f"train_loss {avg_loss:.4f} "
-                    f"— new best, saved checkpoint"
-                )
+                print(f"epoch {epoch} train_loss {avg_loss:.4f} — new best, saved checkpoint")
         else:
             print("no improvement, not saving checkpoint this epoch")
     else:
@@ -211,9 +238,6 @@ for epoch in range(start_epoch, end_epoch):
         print(f"saved checkpoint at epoch {epoch}")
 
 if best_epoch is not None and best_loss < float("inf"):
-    print(
-        f"\n✔ finished training — best checkpoint at epoch {best_epoch}, "
-        f"best_loss={best_loss:.4f}"
-    )
+    print(f"\n✔ finished training — best checkpoint at epoch {best_epoch}, best_loss={best_loss:.4f}")
 else:
     print("\n✔ finished training — no best checkpoint recorded")
