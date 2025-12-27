@@ -35,14 +35,14 @@ elif PROFILE == "cpu_full":
     VAL_BATCHES= 20
 
 elif PROFILE == "gpu_train":
-    SEQ_LEN = 1024
-    BATCH_SIZE = 128
-    EMBED_DIM = 768
-    N_HEADS = 16
-    N_LAYERS = 12
-    LR = 2e-4
+    SEQ_LEN = 3072
+    BATCH_SIZE = 12
+    EMBED_DIM = 1536
+    N_HEADS = 24
+    N_LAYERS = 32
+    LR = 1.5e-4
     PIN_MEMORY = True
-    EPOCHS_PER_RUN = 10
+    EPOCHS_PER_RUN = 100
     MAX_EPOCHS = None
     MAX_BATCHES = None
     TRAIN_FRACTION = 1.0
