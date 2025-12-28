@@ -61,7 +61,7 @@ else:
     USE_AMP = False
 
 GEN_MAX_NEW_TOKENS = 200
-GEN_TEMPERATURE = 0.8
+GEN_TEMPERATURE = 0.95
 GEN_TOP_K = None
 GEN_TOP_P = 0.95
 DROPOUT = 0.1
@@ -70,6 +70,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_PATH = os.path.join(ROOT_DIR, "data", "char", "raw.txt")
 CHECKPOINT_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "SolenaTiny.pth")
+INFER_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "SolenaTiny_infer.pth")
 VAL_PATH = os.path.join(ROOT_DIR, "data", "char", "val.txt")
 TOKENIZER_PATH = os.path.join(ROOT_DIR, "checkpoints", "char", "tokenizer.json")
 

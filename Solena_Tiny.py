@@ -8,7 +8,7 @@ torch.set_num_threads(4)
 
 DEVICE = config_tiny.DEVICE
 SEQ_LEN = config_tiny.SEQ_LEN
-CHECKPOINT_PATH = config_tiny.CHECKPOINT_PATH
+INFER_PATH = config_tiny.INFER_PATH
 DATA_PATH = config_tiny.DATA_PATH
 
 def load_tokenizer():
@@ -30,10 +30,10 @@ def load_model(tokenizer):
         dropout=config_tiny.DROPOUT,
     ).to(DEVICE)
 
-    if not os.path.exists(CHECKPOINT_PATH):
-        raise FileNotFoundError(f"no checkpoint at {CHECKPOINT_PATH}")
+    if not os.path.exists(INFER_PATH):
+        raise FileNotFoundError(f"no checkpoint at {INFER_PATH}")
 
-    ckpt = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
+    ckpt = torch.load(INFER_PATH, map_location=DEVICE)
     state_dict = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
     emb_key = "token_emb.weight"
     if emb_key in state_dict:
